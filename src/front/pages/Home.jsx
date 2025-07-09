@@ -6,6 +6,20 @@ export const Home = () => {
 
 	const { store, dispatch } = useGlobalReducer()
 
+	const getPrivateInfo = async () => {
+		const backendUrl = import.meta.env.VITE_BACKEND_URL
+		const token = localStorage.getItem("token-jwt")
+		const response = await fetch(backendUrl + "my_password", {
+			method: 'GET',
+			headers: {
+				"Content-Type": "application/json",
+				'Authorization': 'Bearer ' + token
+			}
+		})
+		const data = await response.json()
+		console.log(data);
+
+	}
 	const loadMessage = async () => {
 		try {
 			const backendUrl = import.meta.env.VITE_BACKEND_URL
@@ -28,8 +42,24 @@ export const Home = () => {
 
 	}
 
+	const login = function () {
+		fetch(import.meta.env.VITE_BACKEND_URL + "login", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ "email": "andrea@ccss.com", "password": "654321" })
+		}
+		)
+			.then((response) => { return response.json() })
+			.then((data) => {
+				console.log(data.token);
+				localStorage.setItem("token-jwt", data.token)
+			})
+			.catch((err) => { err })
+	}
+
 	useEffect(() => {
 		loadMessage()
+		login()
 	}, [])
 
 	return (
@@ -46,6 +76,11 @@ export const Home = () => {
 						Loading message from the backend (make sure your python 🐍 backend is running)...
 					</span>
 				)}
+				<button className="btn btn-success"
+					onClick={() => {
+
+					}}
+				>Traer informacion privada</button>
 			</div>
 		</div>
 	);
