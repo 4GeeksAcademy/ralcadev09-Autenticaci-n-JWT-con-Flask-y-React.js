@@ -17,6 +17,7 @@ from flask_jwt_extended import jwt_required
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from datetime import timedelta
+from flask_bcrypt import Bcrypt
 
 # from models import Person
 
@@ -25,11 +26,10 @@ static_file_dir = os.path.join(os.path.dirname(
     os.path.realpath(__file__)), '../dist/')
 app = Flask(__name__)
 CORS(app)
-
 app.config["JWT_SECRET_KEY"] = os.getenv('JWT_KEY')
-from datetime import timedelta
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=30)
 jwt = JWTManager(app)
+bcrypt = Bcrypt(app)
 
 
 app.url_map.strict_slashes = False
@@ -72,6 +72,8 @@ def sitemap():
     return send_from_directory(static_file_dir, 'index.html')
 
 # any other endpoint will try to serve it like a static file
+
+
 @app.route('/<path:path>', methods=['GET'])
 def serve_any_other_file(path):
     if not os.path.isfile(os.path.join(static_file_dir, path)):
@@ -80,37 +82,61 @@ def serve_any_other_file(path):
     response.cache_control.max_age = 0  # avoid cache memory
     return response
 
-@app.route('/login' , methods=['POST'])
+
+@app.route('/login', methods=['POST'])
 def login():
     body = request.get_json(silent=True)
     if body is None:
         return jsonify({'msg': 'Debes incluir esta informacion en el body'}), 400
     if 'email' not in body:
         return jsonify({'msg': 'El campo \'email\' es obligatorio'}), 400
-    if 'password' not in body: 
+    if 'password' not in body:
         return jsonify({'msg': 'El campo \'password\' es obligatorio'}), 400
+
     user = User.query.filter_by(email=body['email']).first()
     if user is None:
         return jsonify({'msg': 'Usuario o contraseña invalido'}), 400
-    if user.password != body['password']:
+
+    is_password_correct = bcrypt.check_password_hash(user.password, body['password'])
+    if not is_password_correct:
         return jsonify({'msg': 'Usuario o contraseña invalido'}), 400
+
     access_token = create_access_token(identity=user.email)
     return jsonify({'msg': 'ok', 'token': access_token}), 200
- 
+
+
 @app.route('/my_password', methods=['GET'])
 @jwt_required()
-def show_password():
+def show_user_info():
     current_user = get_jwt_identity()
-    print(current_user)
     user = User.query.filter_by(email=current_user).first()
-    return jsonify({'msg': 'ok', 'pasword': user.password})
+    if user is None:
+        return jsonify({'msg': 'Usuario no encontrado'}), 404
+    return jsonify({'msg': 'ok', 'email': user.email})
 
 
+@app.route('/signup', methods=['POST'])
+def signup():
+    body = request.get_json()
+    if not body.get('email') or not body.get('password'):
+        return jsonify({"msg": "Faltan datos"}), 400
 
-    
-    
-    return jsonify({'msg': 'ok'}), 200
+    if User.query.filter_by(email=body['email']).first():
+        return jsonify({"msg": "Usuario ya existe"}), 409
 
+    pw_hash = bcrypt.generate_password_hash(body['password']).decode('utf-8')
+    user = User(email=body['email'], password=pw_hash, is_active=True)
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify({"msg": "Usuario creado correctamente"}), 201
+
+
+@app.route('/private', methods=['GET'])
+@jwt_required()
+def private():
+    current_user_email = get_jwt_identity()
+    return jsonify({"msg": f"Bienvenido, {current_user_email}"}), 200
 
 
 # this only runs if `$ python src/main.py` is executed

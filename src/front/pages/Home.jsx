@@ -17,7 +17,7 @@ export const Home = () => {
 			}
 		})
 		const data = await response.json()
-		console.log(data);
+		alert(data);
 
 	}
 	const loadMessage = async () => {
@@ -77,7 +77,7 @@ export const Home = () => {
 					</span>
 				)}
 				<button className="btn btn-success"
-					onClick={() => {
+					onClick={(getPrivateInfo) => {
 
 					}}
 				>Traer informacion privada</button>
